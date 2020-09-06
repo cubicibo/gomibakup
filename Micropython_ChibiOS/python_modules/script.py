@@ -14,7 +14,7 @@ def format(nb=10):
 		read.append(struct.unpack('B', b_read[i:i+1])[0])
 	return read, addr, val
 
-def print(nb=10):
+def print_script(nb=10):
 	read, addr, val = format(nb)
 
 	for i in range(len(read)):
