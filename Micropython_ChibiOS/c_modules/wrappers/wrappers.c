@@ -17,8 +17,7 @@
 #endif	/* CHIBIOS */
 
 /////////////////////////////////////
-/////////////////////////////////////
-/////////////* BROOD-NEST WRAPPERS */
+//Stm32 identifier
 STATIC mp_obj_t wrapper_get_mcu_uuid(void) {
     #ifndef STM32_UUID
         #define STM32_UUID ((uint32_t *)0x1FFF7A10)
@@ -36,6 +35,7 @@ STATIC mp_obj_t wrapper_get_mcu_uuid(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(wrapper_get_mcu_uuid_obj, wrapper_get_mcu_uuid);
 
+///// Reset low level script kept in C side.
 STATIC mp_obj_t wrapper_cpu_reset_script(void) {
 
     reset_script();
@@ -43,6 +43,7 @@ STATIC mp_obj_t wrapper_cpu_reset_script(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(wrapper_cpu_reset_script_obj, wrapper_cpu_reset_script);
 
+//Save cpu_write instruction in low level memory
 STATIC mp_obj_t wrapper_cpu_write(mp_obj_t obj_addr, mp_obj_t obj_val) {
 
     if (mp_obj_is_int(obj_addr) && mp_obj_is_int(obj_val))
@@ -52,6 +53,7 @@ STATIC mp_obj_t wrapper_cpu_write(mp_obj_t obj_addr, mp_obj_t obj_val) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(wrapper_cpu_write_obj, wrapper_cpu_write);
 
+//Save cpu_read instruction in low level memory
 STATIC mp_obj_t wrapper_cpu_read(mp_obj_t obj_addr, mp_obj_t obj_val) {
 
     if (mp_obj_is_int(obj_addr) && mp_obj_is_int(obj_val))
@@ -61,6 +63,7 @@ STATIC mp_obj_t wrapper_cpu_read(mp_obj_t obj_addr, mp_obj_t obj_val) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_2(wrapper_cpu_read_obj, wrapper_cpu_read);
 
+//Execute script saved in low level memory (by default: NROM)
 STATIC mp_obj_t wrapper_cpu_dump(void) {
 
    	request_dump();
@@ -68,7 +71,7 @@ STATIC mp_obj_t wrapper_cpu_dump(void) {
 }
 STATIC MP_DEFINE_CONST_FUN_OBJ_0(wrapper_cpu_dump_obj, wrapper_cpu_dump);
 
-
+//print a section of low level script kept in memory
 STATIC mp_obj_t wrapper_cpu_get_script(void) {
 
 	uint8_t size = 10;

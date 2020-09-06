@@ -10,4 +10,4 @@ Gomibakup is a work in progress dumping device/system for the NES & Famicom. It 
     	    |- Micropython_ChibiOS
 </pre>
 
-where ChibiOS is a clone of the git repository (contains demos/, doc/, os/...)
+where ChibiOS, micropython are clones of the original git repository of both projects.
