@@ -17,6 +17,7 @@
 #define PAL_M2 PAL_LINE(GPIOB,15u)
 #define PAL_CPU_RW PAL_LINE(GPIOA,15u)
 #define PAL_nROMSEL PAL_LINE(GPIOC,10u)
+#define PAL_DEBUG PAL_LINE(GPIOG, 4u)
 
 ///// BUSES
 static IOBus cpuDBus = {GPIOA, 0x00FF, 0};
@@ -33,12 +34,19 @@ typedef struct script { // R/W 0xADDR 0xVAL
 } command;
 
 ////Vars
+/*
+// 0 : clock M2 only during reading, perform all writes repeatidly between all reads
+// 1 : Continuously clock M2 during USB transfers
+*/
+static uint8_t dumpingMode = 0;
+static bool error = false;
+
 static bool dataBusRead = true; //pins are input by default
 static bool dump = false;
 
 #define MAX_BANK_SIZE 0x8000
 static uint8_t data[MAX_BANK_SIZE]; //Buffer
-static uint16_t data_offset;
+static uint32_t data_offset;
 
 #define NB_COMMAND_MAX_SCRIPT 5000
 static command unrolledScript[NB_COMMAND_MAX_SCRIPT]; //at most 5000 instructions
@@ -46,11 +54,28 @@ static uint16_t unrolledSize;
 
 static uint16_t currentCommand = 0; //command pointer
 
+//TIM1N on PB15 AF1
+#define PWMDRV PWMD1
+
+static PWMConfig pwmCfgTim1N = { 1800000, 1, NULL,
+	  {
+		 {PWM_COMPLEMENTARY_OUTPUT_DISABLED, NULL},
+		 {PWM_COMPLEMENTARY_OUTPUT_DISABLED, NULL},
+		 {PWM_COMPLEMENTARY_OUTPUT_ACTIVE_HIGH, NULL},
+		 {PWM_COMPLEMENTARY_OUTPUT_DISABLED, NULL}
+	  }, 0,0
+	#if STM32_PWM_USE_ADVANCED
+	  ,0 // TIM BDTR (break & dead-time) register initialization data.
+	#endif
+};
+
 //User from Micropython has requested to initiate the dumping sequence
 void request_dump() {
+	error = false;
 	dump = true;
 	currentCommand = 0;
 	data_offset = 0;
+	palClearLine(PAL_DEBUG);
 }
 
 void reset_script() {
@@ -69,7 +94,6 @@ void store_command(bool read, uint16_t a, uint16_t val) {
 }
 
 void execute_script() {
-
 	uint16_t cnt;
 	//lock to thread
 	chSysLock();
@@ -77,10 +101,47 @@ void execute_script() {
 	for (cnt = 0; cnt < unrolledSize; cnt++) {
 		if (unrolledScript[cnt].read) {
 			read_prg_f(unrolledScript[cnt].addr, unrolledScript[cnt].val);
-			//empty buffer here?
-			//chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);
+
+			palSetLine(PAL_DEBUG)
+			palSetLineMode(PAL_M2, PAL_MODE_ALTERNATE(1))
+			pwmStart(&PWMDRV, &pwmCfgTim1N);
+			pwmEnableChannel(&PWMDRV, 2, PWM_PERCENTAGE_TO_WIDTH(&PWMDRV, 5000));
+			palClearLine(PAL_DEBUG);
+			chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);
+			pwmDisableChannel(&PWMDRV, 2);
+			pwmStop(&PWMDRV);
+			palSetLineMode(PAL_M2, PAL_STM32_MODE_OUTPUT);
 		}
 		else {
+			write_prg(unrolledScript[cnt].addr, (uint8_t)unrolledScript[cnt].val);
+		}
+	}
+	chSysUnlock();
+}
+
+void execute_script_intermittent() {
+
+	bool todo[unrolledSize] = {true};
+	uint16_t cnt;
+	//lock to thread
+	chSysLock();
+
+	for (cnt = 0; cnt < unrolledSize; cnt++) {
+		if (unrolledScript[cnt].read && todo[cnt]) {
+			//send data if buffer is full
+			if (unrolledScript[cnt].val+data_offset > MAX_BANK_SIZE) {
+				if(chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset) != data_offset) {
+					error = true; //chnWrite missed bytes -> file on host is incomplete
+				}
+				data_offset = 0;
+				cnt = 0; // restart over all writes
+			}
+			else {
+				read_prg_f(unrolledScript[cnt].addr, unrolledScript[cnt].val);
+				todo[cnt] = false;
+			}
+		}
+		else if (!unrolledScript[cnt].read) {
 			write_prg(unrolledScript[cnt].addr, (uint8_t)unrolledScript[cnt].val);
 		}
 	}
@@ -137,7 +198,6 @@ void hw_io_prg(bool read) {
 
 void read_prg_f(uint16_t addr, uint16_t size) {
 	hw_io_prg(true);
-	data_offset = 0;
 	uint16_t k = 0;
 
 	//chprintf((BaseSequentialStream *)&USB_GDB,"HI\n");
@@ -150,13 +210,13 @@ void read_prg_f(uint16_t addr, uint16_t size) {
 		palWriteLine(PAL_nROMSEL, !(((addr)>>15u) & 0x01));
 		for (k=0; k<8;k++)
 			__asm__("  nop;");
-		data[data_offset] = palReadBus(&cpuDBus);
-		data_offset++;
+		data[j+data_offset] = palReadBus(&cpuDBus);
 		palClearLine(PAL_M2);
 		palSetLine(PAL_nROMSEL);
 		for (k=0; k<4;k++)
 			__asm__("  nop;");
 	}
+	data_offset += j;
 	//chSysUnlock();
 }
 
