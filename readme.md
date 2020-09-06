@@ -1,4 +1,6 @@
 ## gomibakup
+Gomibakup is a work in progress dumping device/system for the NES & Famicom. It runs on ChibiOS and Micropython combined and require no host application to operate. The user just connects with a terminal session to Micropython, paste the Python script and save the data coming back from a second terminal session to a NES rom.
+
 #### Folder setup
 <pre>
 ./gomibakup/ +
@@ -9,8 +11,3 @@
 </pre>
 
 where ChibiOS is a clone of the git repository (contains demos/, doc/, os/...)
-
-#### Eclipse setup
-Import the project as a "makefile project with existing code", set the proper compiler. When the project is imported, add a linked folder that points to the "lib" folder, so that Eclipse can see the library.
-
-Depending of your setup, the project might require to be built directly from the terminal rather than Eclipse.
