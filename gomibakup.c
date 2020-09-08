@@ -57,7 +57,7 @@ static uint16_t currentCommand = 0; //command pointer
 //TIM1N on PB15 AF1
 #define PWMDRV PWMD1
 
-static PWMConfig pwmCfgTim1N = { 1800000, 1, NULL,
+static PWMConfig pwmCfgTim1N = { 90000000, 50, NULL, //1.8MHz PWM
 	  {
 		 {PWM_COMPLEMENTARY_OUTPUT_DISABLED, NULL},
 		 {PWM_COMPLEMENTARY_OUTPUT_DISABLED, NULL},
@@ -73,13 +73,13 @@ static PWMConfig pwmCfgTim1N = { 1800000, 1, NULL,
 void request_dump() {
 	error = false;
 	dump = true;
-	currentCommand = 0;
 	data_offset = 0;
 	palClearLine(PAL_DEBUG);
 }
 
 void reset_script() {
 	hw_io_prg(true);
+	error = false;
 	dump = false;
 	unrolledSize = 0;
 	currentCommand = 0;
@@ -95,22 +95,24 @@ void store_command(bool read, uint16_t a, uint16_t val) {
 
 void execute_script() {
 	uint16_t cnt;
+	uint32_t bytesSent = 0;
 	//lock to thread
-	chSysLock();
+	uint32_t prgSize = 0;
+	for (cnt = 0; cnt < unrolledSize; cnt++) {
+		if (unrolledScript[cnt].read)
+			prgSize += unrolledScript[cnt].val;
+	}
+	chprintf((BaseSequentialStream *)&USB_SERIAL, "%d\n", prgSize);
+	chThdSleepMilliseconds(500);
 
+	chSysLock();
 	for (cnt = 0; cnt < unrolledSize; cnt++) {
 		if (unrolledScript[cnt].read) {
 			read_prg_f(unrolledScript[cnt].addr, unrolledScript[cnt].val);
-
-			palSetLine(PAL_DEBUG)
-			palSetLineMode(PAL_M2, PAL_MODE_ALTERNATE(1))
-			pwmStart(&PWMDRV, &pwmCfgTim1N);
-			pwmEnableChannel(&PWMDRV, 2, PWM_PERCENTAGE_TO_WIDTH(&PWMDRV, 5000));
-			palClearLine(PAL_DEBUG);
-			chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);
-			pwmDisableChannel(&PWMDRV, 2);
-			pwmStop(&PWMDRV);
+			palSetLineMode(PAL_M2, PAL_MODE_ALTERNATE(1)); //HW PWM
+			bytesSent += chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);//, TIME_MS2I(750));
 			palSetLineMode(PAL_M2, PAL_STM32_MODE_OUTPUT);
+			data_offset = 0;
 		}
 		else {
 			write_prg(unrolledScript[cnt].addr, (uint8_t)unrolledScript[cnt].val);
@@ -121,11 +123,12 @@ void execute_script() {
 
 void execute_script_intermittent() {
 
-	bool todo[unrolledSize] = {true};
+	bool *todo;
+	todo = (bool*)chHeapAlloc(NULL,sizeof(bool)*unrolledSize);
+
 	uint16_t cnt;
 	//lock to thread
 	chSysLock();
-
 	for (cnt = 0; cnt < unrolledSize; cnt++) {
 		if (unrolledScript[cnt].read && todo[cnt]) {
 			//send data if buffer is full
@@ -146,6 +149,7 @@ void execute_script_intermittent() {
 		}
 	}
 	chSysUnlock();
+	chHeapFree(todo);
 }
 
 static THD_WORKING_AREA(waDumpCtrlTh, 128); // @suppress("Symbol is not resolved")
@@ -160,18 +164,28 @@ static THD_FUNCTION(DumpCtrl, arg) {
 	unrolledSize = 2;
 
 	while(true) {
-		if (dump && currentCommand < unrolledSize) {
+		//if user requested a dump from Micropython and the script size is proper
+		if (dump && unrolledSize > 0) {
 				dump = false;
 				currentCommand = 0;
+				/*palClearLine(PAL_CPU_RW);
+				palSetLine(PAL_nROMSEL);
+				hw_io_prg(true);
+				palWriteBus(&cpuABus,0);*/
 				execute_script();
 			}
 		else
 			dump = false;
-		chThdSleepMilliseconds(1000);
+		chThdSleepMilliseconds(250);
 	}
 }
 
 void start_thread() {
+	//pwmStart(&PWMDRV, &pwmCfgTim1N);
+	//pwmEnableChannel(&PWMDRV, 2, PWM_PERCENTAGE_TO_WIDTH(&PWMDRV, 5000));
+
+	//pwmEnableChannel(&PWMDRV, 2, PWM_PERCENTAGE_TO_WIDTH(&PWMDRV, 5000));
+	//pwmStop(&PWMDRV);
 	chThdCreateStatic(waDumpCtrlTh, sizeof(waDumpCtrlTh), NORMALPRIO, DumpCtrl, NULL);
 }
 
@@ -198,29 +212,35 @@ void hw_io_prg(bool read) {
 
 void read_prg_f(uint16_t addr, uint16_t size) {
 	hw_io_prg(true);
-	uint16_t k = 0;
+	uint16_t k;
+	uint16_t j;
 
-	//chprintf((BaseSequentialStream *)&USB_GDB,"HI\n");
+	chSysUnconditionalLock();
 
-	//chSysLock();
-	for (uint16_t j = 0; j < size; j++) {
+	for (j = 0; j < size; j++) {
 		palWriteBus(&cpuABus, addr+j);
 		palSetLine(PAL_CPU_RW);
 		palSetLine(PAL_M2);
-		palWriteLine(PAL_nROMSEL, !(((addr)>>15u) & 0x01));
-		for (k=0; k<8;k++)
+		palWriteLine(PAL_nROMSEL, (~(addr>>15u))&0x01);
+
+		for (k=0; k<9;k++) //6
 			__asm__("  nop;");
+
 		data[j+data_offset] = palReadBus(&cpuDBus);
 		palClearLine(PAL_M2);
 		palSetLine(PAL_nROMSEL);
-		for (k=0; k<4;k++)
+		palClearLine(PAL_CPU_RW);
+
+		for (k=0; k<3;k++) //4
 			__asm__("  nop;");
 	}
 	data_offset += j;
-	//chSysUnlock();
+	chSysUnconditionalUnlock();
 }
 
 void write_prg(uint16_t addr, uint8_t val) {
+	chSysUnconditionalLock();
+
 	uint8_t k;
 
 	palWriteBus(&cpuABus, addr);
@@ -228,9 +248,9 @@ void write_prg(uint16_t addr, uint8_t val) {
 	hw_io_prg(false);
 	palWriteBus(&cpuDBus, val);
 	palSetLine(PAL_M2);
-	palWriteLine(PAL_nROMSEL, !(((addr)>>15u) & 0x01));
+	palWriteLine(PAL_nROMSEL, (~(addr>>15u))&0x01);
 
-	for (k=0; k<8;k++)
+	for (k=0; k<6;k++)
 		__asm__("  nop;");
 
 	palClearLine(PAL_M2);
@@ -238,4 +258,7 @@ void write_prg(uint16_t addr, uint8_t val) {
 
 	for (k=0; k<4;k++)
 		__asm__("  nop;");
+
+	chSysUnconditionalUnlock();
+
 }

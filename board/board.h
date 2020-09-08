@@ -606,14 +606,14 @@
                                      PIN_OSPEED_HIGH(GPIOA_SWDIO) |         \
                                      PIN_OSPEED_HIGH(GPIOA_SWCLK) |         \
                                      PIN_OSPEED_HIGH(GPIOA_ZIO_D20))
-#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLDOWN(GPIOA_PIN0) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN1) |         \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN2) |         \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN3) |       \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN4) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN5) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN6) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOA_PIN7) |      \
+#define VAL_GPIOA_PUPDR             (PIN_PUPDR_PULLUP(GPIOA_PIN0) |      \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN1) |         \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN2) |         \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN3) |       \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN4) |      \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN5) |      \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN6) |      \
+                                     PIN_PUPDR_PULLUP(GPIOA_PIN7) |      \
                                      PIN_PUPDR_FLOATING(GPIOA_USB_SOF) |    \
                                      PIN_PUPDR_FLOATING(GPIOA_USB_VBUS) |   \
                                      PIN_PUPDR_FLOATING(GPIOA_USB_ID) |     \
@@ -723,22 +723,22 @@
                                      PIN_OSPEED_HIGH(GPIOB_ZIO_D18) |       \
                                      PIN_OSPEED_HIGH(GPIOB_LED3) |          \
                                      PIN_OSPEED_HIGH(GPIOB_ZIO_D17))
-#define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D33) |    \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_A6) |       \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D27) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D23) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D25) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D22) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D26) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_LED2) |       \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ARD_D15) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ARD_D14) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D36) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D35) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D19) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D18) |      \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_LED3) |       \
-                                     PIN_PUPDR_PULLDOWN(GPIOB_ZIO_D17))
+#define VAL_GPIOB_PUPDR             (PIN_PUPDR_PULLUP(GPIOB_ZIO_D33) |    \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_A6) |       \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D27) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D23) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D25) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D22) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D26) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_LED2) |       \
+                                     PIN_PUPDR_PULLUP(GPIOB_ARD_D15) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ARD_D14) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D36) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D35) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D19) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D18) |      \
+                                     PIN_PUPDR_PULLUP(GPIOB_LED3) |       \
+                                     PIN_PUPDR_PULLUP(GPIOB_ZIO_D17))
 #define VAL_GPIOB_ODR               (PIN_ODR_LOW(GPIOB_ZIO_D33) |           \
                                      PIN_ODR_LOW(GPIOB_ZIO_A6) |           \
                                      PIN_ODR_LOW(GPIOB_ZIO_D27) |          \
