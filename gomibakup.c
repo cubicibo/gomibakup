@@ -45,7 +45,7 @@ static bool dataBusRead = true; //pins are input by default
 static bool dump = false;
 
 #define MAX_BANK_SIZE 0x8000
-static uint8_t data[MAX_BANK_SIZE]; //Buffer
+static volatile uint8_t data[MAX_BANK_SIZE]; //Buffer
 static uint32_t data_offset;
 
 #define NB_COMMAND_MAX_SCRIPT 5000
@@ -104,20 +104,27 @@ void execute_script() {
 	}
 	chprintf((BaseSequentialStream *)&USB_SERIAL, "%d\n", prgSize);
 	chThdSleepMilliseconds(500);
-
 	chSysLock();
 	for (cnt = 0; cnt < unrolledSize; cnt++) {
 		if (unrolledScript[cnt].read) {
+
 			read_prg_f(unrolledScript[cnt].addr, unrolledScript[cnt].val);
-			palSetLineMode(PAL_M2, PAL_MODE_ALTERNATE(1)); //HW PWM
-			bytesSent += chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);//, TIME_MS2I(750));
+
+			/*palSetLineMode(PAL_M2, PAL_MODE_ALTERNATE(1)); //HW PWM
+			bytesSent += chnWrite((BaseSequentialStream *)&USB_SERIAL, data+0x4000*cnt, sizeof(uint8_t)*unrolledScript[cnt].val);//, TIME_MS2I(750));
 			palSetLineMode(PAL_M2, PAL_STM32_MODE_OUTPUT);
-			data_offset = 0;
+			data_offset = 0;*/
+			if (cnt+1 < unrolledSize && unrolledScript[cnt+1].val+data_offset > MAX_BANK_SIZE) {
+				chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);
+				data_offset = 0;
+			}
 		}
 		else {
 			write_prg(unrolledScript[cnt].addr, (uint8_t)unrolledScript[cnt].val);
 		}
 	}
+	if (data_offset > 0)
+		chnWrite((BaseSequentialStream *)&USB_SERIAL, data, sizeof(uint8_t)*data_offset);
 	chSysUnlock();
 }
 
@@ -164,19 +171,16 @@ static THD_FUNCTION(DumpCtrl, arg) {
 	unrolledSize = 2;
 
 	while(true) {
+		chThdSleepMilliseconds(2500);
+
 		//if user requested a dump from Micropython and the script size is proper
 		if (dump && unrolledSize > 0) {
 				dump = false;
 				currentCommand = 0;
-				/*palClearLine(PAL_CPU_RW);
-				palSetLine(PAL_nROMSEL);
-				hw_io_prg(true);
-				palWriteBus(&cpuABus,0);*/
 				execute_script();
 			}
 		else
 			dump = false;
-		chThdSleepMilliseconds(250);
 	}
 }
 
@@ -212,29 +216,39 @@ void hw_io_prg(bool read) {
 
 void read_prg_f(uint16_t addr, uint16_t size) {
 	hw_io_prg(true);
+	uint8_t tmp = 0;
 	uint16_t k;
-	uint16_t j;
+	uint16_t i;
+	uint32_t j;
 
 	chSysUnconditionalLock();
 
-	for (j = 0; j < size; j++) {
-		palWriteBus(&cpuABus, addr+j);
+	for (i=0, j = 0; i < size; j++) {
+		palWriteBus(&cpuABus, addr+i);
 		palSetLine(PAL_CPU_RW);
 		palSetLine(PAL_M2);
 		palWriteLine(PAL_nROMSEL, (~(addr>>15u))&0x01);
 
-		for (k=0; k<9;k++) //6
+		for (k=0; k<7;k++) //6
 			__asm__("  nop;");
 
-		data[j+data_offset] = palReadBus(&cpuDBus);
+		if(j&0x1) {
+			if (tmp == palReadBus(&cpuDBus))
+				data[data_offset+i++] = tmp;
+			else
+				j-=2;
+		}
+		else
+			tmp = palReadBus(&cpuDBus);
+
 		palClearLine(PAL_M2);
 		palSetLine(PAL_nROMSEL);
-		palClearLine(PAL_CPU_RW);
+		//palClearLine(PAL_CPU_RW);
 
 		for (k=0; k<3;k++) //4
 			__asm__("  nop;");
 	}
-	data_offset += j;
+	data_offset += size;
 	chSysUnconditionalUnlock();
 }
 

@@ -17,7 +17,6 @@ int main(void) {
 	//OS init
 	halInit();
 	chSysInit();
-
 	//Start MPY last because we want to make sure the other threads are ready by the time micropython runs.
 	usbSerialStart();
 	micropythonStart();
